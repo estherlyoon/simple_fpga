@@ -10,7 +10,7 @@ VFILES := $(wildcard $(SRC_DIR)/*.v)
 all: ${EXEC}
 
 ${EXEC}: ${VFILES} ${BIN_DIR}
-	iverilog -o $@ $^
+	iverilog -o $@ ${VFILES}
 
 ${BIN_DIR}:
 	mkdir -p $@

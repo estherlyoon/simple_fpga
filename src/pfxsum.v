@@ -6,10 +6,10 @@ module Pfxsum #(
 ) (
 	input wire clk,
 	input wire valid_in,
-    input wire [V_LEN * IWIDTH-1:0] ivec,
-    output reg valid_out, 
-    output reg [V_LEN * IWIDTH-1:0] ovec
-);                                       
+	input wire [V_LEN * IWIDTH-1:0] ivec,
+	output reg valid_out, 
+	output reg [V_LEN * IWIDTH-1:0] ovec
+);
 
 localparam UP = 0;
 localparam DOWN = 1;
@@ -50,7 +50,6 @@ for (i = 0; i < V_LEN; i = i + 1) begin
 	end
 end
 endgenerate
- 
 
 always @(posedge clk) begin
 
@@ -58,7 +57,7 @@ always @(posedge clk) begin
 		pfxsum_state <= UP;
 
 	case(pfxsum_state)
-    	UP: begin
+		UP: begin
 			level <= level + 1;
 			// check if done with up-sweep
 			if (level == $clog2(V_LEN) - 1) begin

@@ -47,16 +47,16 @@ always @(posedge clk) begin
 		$finish;
 	end
 end
- 
+
 Pfxsum #(
 	.IWIDTH(IWIDTH),
 	.V_LEN(V_LEN)
 ) pfxsum (
 	.clk(clk),
 	.valid_in(valid_in),
-    .ivec(ivec),
-    .valid_out(valid_out), 
-    .ovec(ovec)
-);                                       
- 
+	.ivec(ivec),
+	.valid_out(valid_out), 
+	.ovec(ovec)
+);
+
 endmodule

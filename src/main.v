@@ -43,7 +43,6 @@ always @(posedge clk) begin
 		valid_in <= 0;
 	
 	if (valid_out) begin
-		$display("done");
 		$finish;
 	end
 end

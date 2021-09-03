@@ -12,86 +12,80 @@ module Pfxsum #(
 );
 
 localparam UP = 0;
-localparam DOWN = 1;
-localparam DONE = 2;
-
+localparam INT = 1;
+localparam DOWN = 2;
+localparam DONE = 3;
 
 reg [7:0] pfxsum_state;
 // current level for sweep, log2-based
 reg [15:0] level = 0;
-// tracking steps for down sweep
-reg [2:0] count = 0;
 // temporary array for down sweep
 reg [IWIDTH-1:0] tmp [V_LEN-1:0];
 // in-place array to compute pfxsum
 reg [IWIDTH-1:0] vec [V_LEN-1:0];
+// to check whether last element is zeroed out
+reg zeroed = 0;
 
-	// down:
-	// 1: x[n – 1] <- 0
-	// 2: for d = log2(n – 1) down to 0 do
-	// 3:       for all k = 0 to n – 1 by 2^d +1 in parallel do
-	// 4:            t = x[k +  2^d  – 1]
-	// 5:            x[k +  2^d  – 1] = x[k +  2^d+1 – 1]
-	// 6:            x[k +  2^d+1 – 1] = t +  x[k +  2^d+1 – 1]
+wire [IWIDTH-1:0] lvals [V_LEN-1:0];
+wire [IWIDTH-1:0] rvals [V_LEN-1:0];
 
 genvar n;
 generate
 for (n = 0; n < V_LEN; n = n + 1) begin
+	assign lvals[n] = n + 2 ** level - 1;
+	assign rvals[n] = n + 2 ** (level + 1) - 1;
+	
 	always @(posedge clk) begin
 		// initialize vec, unflatten into 2d array
 		if (valid_in) vec[n] <= ivec[(n+1)*IWIDTH-1:n*IWIDTH];
+		// reflatten vec for output
+		ovec[(n+1)*IWIDTH-1:n*IWIDTH] <= vec[n];
 
-		if (pfxsum_state == UP & n+2**(level+1)-1 < V_LEN & n % (2 ** (level+1)) == 0) begin
-			/* $display("adding %d [%d] to %d [%d]",  vec[n + 2 ** level - 1], n + 2 ** level - 1, */ 
-			/* 									   vec[n + 2 ** (level + 1) - 1], n + 2 ** (level + 1) - 1 ); */
-			vec[n + 2 ** (level + 1) - 1] <= vec[n + 2 ** level - 1] + vec[n + 2 ** (level + 1) - 1];
-		end
-		else if (pfxsum_state == DOWN & n+2**(level+1)-1 < V_LEN & n % (2 ** (level+1)) == 0) begin
-			case(count)
-				0: tmp[n] <= vec[n + 2 ** level - 1];
-				1: vec[n + 2 ** level - 1] <= vec[n + 2 ** (level + 1) - 1];
-				2: vec[n + 2 ** (level+1) - 1] <= tmp[n] + vec[n + 2 ** (level + 1) - 1];
-			endcase
-			count <= (count + 1) % 3;
+		if (rvals[n] < V_LEN & n % (2 ** (level+1)) == 0) begin
+			if (pfxsum_state == UP)
+				vec[rvals[n]] <= vec[lvals[n]] + vec[rvals[n]];
+			if (pfxsum_state == DOWN) begin
+				vec[lvals[n]] <= vec[rvals[n]];
+				vec[rvals[n]] <= vec[lvals[n]] + vec[rvals[n]];
+			end
 		end
 	end
 end
 endgenerate
+
+// state machine for stages of sum
+always @(posedge clk) begin
+	if (valid_in) pfxsum_state <= UP;
+
+	case(pfxsum_state)
+		UP: begin
+			// check if done with up-sweep
+			if (level == $clog2(V_LEN) - 1) begin
+				pfxsum_state <= INT;
+			end
+			else level <= level + 1;
+		end
+		INT: begin
+			vec[V_LEN-1] <= 0;
+			pfxsum_state <= DOWN;
+		end
+		DOWN: begin
+			level <= level - 1;
+			if (level == 0) pfxsum_state <= DONE;
+		end
+		DONE: valid_out <= 1;
+	endcase
+end
 
 // DEBUG
 genvar i;
 generate
 for (i = 0; i < V_LEN; i = i + 1) begin
 	always @(posedge clk) begin
-		if (pfxsum_state == DOWN & level == $clog2(V_LEN) - 1) $display("up %d: %h", i, vec[i]);
-		else if (pfxsum_state == DONE) $display("fin %d: %h", i, vec[i]);
+		//if (pfxsum_state == DOWN & $clog2(V_LEN) - 1 == level + 1) $display("up %d: %h", i, vec[i]);
+		//if (pfxsum_state == DOWN) $display("arr %d: %h", i, vec[i]);
 	end
 end
 endgenerate
-
-always @(posedge clk) begin
-
-	if (valid_in)
-		pfxsum_state <= UP;
-
-	case(pfxsum_state)
-		UP: begin
-			// check if done with up-sweep
-			if (level == $clog2(V_LEN) - 1) begin
-				vec[V_LEN-1] <= 0;
-				pfxsum_state <= DOWN;
-			end
-			else
-				level <= level + 1;
-		end
-		DOWN: begin
-			level <= level - 1;
-			if (level == 0) begin
-				valid_out <= 1;
-				pfxsum_state <= DONE;
-			end
-		end
-	endcase
-end
 
 endmodule

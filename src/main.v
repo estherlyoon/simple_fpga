@@ -29,7 +29,8 @@ for (i = 0; i < V_LEN; i = i + 1) begin
 
 	// debug
 	always @(posedge clk) begin
-		if (init) $display("val %d: %h", i, ivec[(i+1)*IWIDTH-1:i*IWIDTH]);
+		if (init) $display("arr[%d]: %d", i, ivec[(i+1)*IWIDTH-1:i*IWIDTH]);
+		if (valid_out) $display("pfx_arr[%d] = %d", i, ovec[(i+1)*IWIDTH-1:i*IWIDTH]);
 	end
 end
 endgenerate
